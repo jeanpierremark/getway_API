@@ -1,0 +1,27 @@
+{
+  "name": "getway_api",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/jeanpierremark/getway_API#readme",
+  "bugs": {
+    "url": "https://github.com/jeanpierremark/getway_API/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeanpierremark/getway_API.git"
+  },
+  "license": "ISC",
+  "author": "Jp Mark",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5"
+  }
+}
