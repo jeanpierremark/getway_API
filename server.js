@@ -92,7 +92,7 @@ const shouldCacheRequest = (req) => {
 // Fonction pour déterminer le TTL selon le type de données
 const getCacheTTL = (req) => {
   const url = req.originalUrl; 
-  if (url.includes('/user') || url.includes('/activity') || url.includes('/info')) {
+  if (url.includes('/user') || url.includes('/activity') || url.includes('/info') || url.includes('/chercheur/meteo_open') || url.includes('/chercheur/meteo_openweather') || url.includes('/chercheur/meteo_weather')) {
     return 5; 
   }
     return 1200; 
