@@ -60,11 +60,9 @@ const generateCacheKey = (req) => {
   // DÉCISION: Cache partagé ou cache par utilisateur
   let userIdentifier = '';
   if (shouldUseSharedCache(req)) {
-    // Cache partagé : pas d'identifiant utilisateur
     userIdentifier = 'shared';
     console.log(`[CACHE KEY] Mode partagé pour ${url}`);
   } else {
-    // Cache privé : inclure le hash du token
     userIdentifier = req.token ? 
       crypto.createHash('md5').update(req.token).digest('hex').substring(0, 8) : 
       'anonymous';
@@ -109,23 +107,19 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
-// MIDDLEWARE PRINCIPAL DE CACHE - Simplifié pour ne gérer que la vérification en amont
 const masterCacheMiddleware = (req, res, next) => {
   console.log(`[MIDDLEWARE] Traitement de ${req.method} ${req.originalUrl}`);
   
-  // Vérifier si cette requête doit être cachée
   if (!shouldCacheRequest(req)) {
     console.log(`[CACHE] Requête ${req.method} ${req.originalUrl} - PAS DE CACHE`);
     return next();
   }
   
-  // Générer la clé de cache
   const cacheKey = generateCacheKey(req);
   
   console.log(`[CACHE DEBUG] Clé générée: ${cacheKey}`);
   console.log(`[CACHE DEBUG] Token hash: ${req.token ? crypto.createHash('md5').update(req.token).digest('hex').substring(0, 8) : 'anonymous'}`);
   
-  // Vérifier le cache AVANT
   const cachedResponse = responseCache.get(cacheKey);
   console.log(`[CACHE DEBUG] Cache lookup: ${cachedResponse ? 'TROUVÉ' : 'NON TROUVÉ'}`);
   console.log(`[CACHE DEBUG] Nombre total de clés: ${responseCache.keys().length}`);
@@ -147,22 +141,18 @@ const masterCacheMiddleware = (req, res, next) => {
   
   console.log(`[CACHE MISS] ${req.method} ${req.originalUrl} - Appel au backend`);
   
-  // Pas d'override res.json/send ici, car géré par le proxy
   next();
 };
 
-// Appliquer les middlewares de base
 app.use(extractToken);
-app.use(masterCacheMiddleware); // CACHE PRINCIPAL
+app.use(masterCacheMiddleware); 
 
-// Fonction helper pour créer un proxy avec interception de réponse
 const createProxyWithCache = (target) => {
   return createProxyMiddleware({
     target,
     changeOrigin: true,
     logLevel: 'debug',
-    selfHandleResponse: true, // IMPORTANT : Le proxy ne gère pas l'envoi auto de la réponse
-    
+    selfHandleResponse: true, 
     on: {
       proxyReq: (proxyReq, req, res) => {
         console.log(`[PROXY REQ] ${req.method} ${req.originalUrl} -> ${target}`);
@@ -174,19 +164,16 @@ const createProxyWithCache = (target) => {
       proxyRes: responseInterceptor(async (buffer, proxyRes, req, res) => {
         console.log(`[INTERCEPT] Interception réponse - Status: ${proxyRes.statusCode}`);
         
-        // Copier le status et les headers
         res.statusCode = proxyRes.statusCode;
         Object.entries(proxyRes.headers).forEach(([key, value]) => {
           res.setHeader(key, value);
         });
         
-        // Vérifier si on doit cacher
         if (!shouldCacheRequest(req) || res.statusCode < 200 || res.statusCode >= 300) {
           console.log(`[CACHE SKIP] Pas de cache pour cette réponse`);
-          return buffer; // Retourner le buffer inchangé
+          return buffer; 
         }
         
-        // Générer la clé et TTL
         const cacheKey = generateCacheKey(req);
         const cacheTTL = getCacheTTL(req);
         
@@ -194,11 +181,9 @@ const createProxyWithCache = (target) => {
           let parsedBody = buffer;
           const contentType = proxyRes.headers['content-type'];
           
-          // Parser si JSON
           if (contentType && contentType.includes('application/json')) {
             parsedBody = JSON.parse(buffer.toString('utf8'));
           } else {
-            // Si non JSON, stocker comme string
             parsedBody = buffer.toString('utf8');
           }
           
@@ -209,7 +194,6 @@ const createProxyWithCache = (target) => {
             cachedAt: new Date().toISOString()
           };
           
-          // Nettoyer les headers sensibles
           delete cacheData.headers['set-cookie'];
           delete cacheData.headers['authorization'];
           
@@ -218,9 +202,8 @@ const createProxyWithCache = (target) => {
           console.log(`[CACHE SET] Réponse cachée - Clé: ${cacheKey.substring(0, 8)} - TTL: ${cacheTTL}s`);
           console.log(`[CACHE SET] Status: ${res.statusCode}, Size: ${buffer.length} bytes`);
           
-          // Vérification immédiate
           const verify = responseCache.get(cacheKey);
-          console.log(`[CACHE SET] Vérification immédiate: ${verify ? ' OK' : '❌ ÉCHEC'}`);
+          console.log(`[CACHE SET] Vérification immédiate: ${verify ? ' OK' : ' ÉCHEC'}`);
           console.log(`[CACHE SET] Total clés maintenant: ${responseCache.keys().length}`);
           
           res.setHeader('X-Cache', 'MISS');
@@ -230,7 +213,6 @@ const createProxyWithCache = (target) => {
           console.error(`[CACHE ERROR] Erreur stockage:`, error.message, error.stack);
         }
         
-        // Retourner le buffer original pour envoi au client
         return buffer;
       }),
       
@@ -244,7 +226,6 @@ const createProxyWithCache = (target) => {
   });
 };
 
-// Routes avec proxy
 const userServiceProxy = createProxyWithCache(process.env.USER_SERVICE_URL);
 const dataServiceProxy = createProxyWithCache(process.env.DATA_SERVICE_URL);
 
@@ -253,7 +234,6 @@ app.use('/users/register', userServiceProxy);
 app.use('/users', requireAuth, userServiceProxy);
 app.use('/data_chercheur', requireAuth, dataServiceProxy);
 
-// Routes de gestion du cache
 app.get('/cache/stats', (req, res) => {
   const stats = responseCache.getStats();
   const keys = responseCache.keys();
